@@ -146,6 +146,35 @@ defmodule Anthropix do
     ]
   ]
 
+  schema :web_search_tool, [
+    type: [
+      type: :string,
+      required: true,
+      doc: "Type of web search tool (i.e. 'web_search_20250305')."
+    ],
+    name: [
+      type: :string,
+      required: true,
+      doc: "Name of the tool, must be 'web_search'."
+    ],
+    max_uses: [
+      type: :integer,
+      doc: "Optional: Limit the number of searches per request."
+    ],
+    allowed_domains: [
+      type: {:list, :string},
+      doc: "Optional: Only include results from these domains."
+    ],
+    blocked_domains: [
+      type: {:list, :string},
+      doc: "Optional: Never include results from these domains."
+    ],
+    user_location: [
+      type: @permissive_map,
+      doc: "Optional: Localize search results based on a user's location."
+    ]
+  ]
+
   schema :chat_tool_choice, [
     type: [
       type: :string,
@@ -178,7 +207,10 @@ defmodule Anthropix do
     content_text() |
     content_media() |
     content_tool_use() |
-    content_tool_result()
+    content_tool_result() |
+    content_web_search_tool_use() |
+    content_web_search_tool_result() |
+    content_citations()
 
   @type content_text() :: %{
     type: String.t(),
@@ -205,6 +237,48 @@ defmodule Anthropix do
     type: String.t(),
     tool_use_id: String.t(),
     content: %{optional(String.t()) => String.t()}
+  }
+
+  @type content_web_search_tool_use() :: %{
+    type: String.t(),
+    id: String.t(),
+    name: String.t(),
+    input: %{
+      query: String.t()
+    }
+  }
+
+  @type content_web_search_tool_result() :: %{
+    type: String.t(),
+    tool_use_id: String.t(),
+    content: list(web_search_result()) | web_search_error()
+  }
+
+  @type web_search_result() :: %{
+    type: String.t(),
+    url: String.t(),
+    title: String.t(),
+    encrypted_content: String.t(),
+    page_age: String.t()
+  }
+
+  @type web_search_error() :: %{
+    type: String.t(),
+    error_code: String.t()
+  }
+
+  @type content_citations() :: %{
+    type: String.t(),
+    text: String.t(),
+    citations: list(citation())
+  }
+
+  @type citation() :: %{
+    type: String.t(),
+    url: String.t(),
+    title: String.t(),
+    encrypted_index: String.t(),
+    cited_text: String.t()
   }
 
   @typedoc """
@@ -354,7 +428,10 @@ defmodule Anthropix do
       doc: "Amount of randomness injected into the response."
     ],
     tools: [
-      type: {:list, {:map, schema(:chat_tool).schema}},
+      type: {:list, {:or, [
+        {:map, schema(:chat_tool).schema},
+        {:map, schema(:web_search_tool).schema}
+      ]}},
       doc: "A list of tools the model may call.",
     ],
     tool_choice: [
@@ -392,6 +469,12 @@ defmodule Anthropix do
 
   #{doc(:chat_tool)}
 
+  ## Web search tool
+
+  The web search tool gives Claude direct access to real-time web content using the following structure:
+
+  #{doc(:web_search_tool)}
+
   ## Examples
 
   ```elixir
@@ -417,6 +500,22 @@ defmodule Anthropix do
   ...>   stream: true,
   ...> ])
   {:ok, #Function<52.53678557/2 in Stream.resource/3>}
+
+  # Using the web search tool to get real-time information
+  iex> Anthropix.chat(client, [
+  ...>   model: "claude-3-7-sonnet-20250219",
+  ...>   messages: [
+  ...>     %{role: "user", content: "What are the latest features in TypeScript 5.5?"}
+  ...>   ],
+  ...>   tools: [
+  ...>     %{
+  ...>       type: "web_search_20250305",
+  ...>       name: "web_search",
+  ...>       max_uses: 3,
+  ...>       allowed_domains: ["typescriptlang.org", "github.com"]
+  ...>     }
+  ...>   ]
+  ...> ])
   ```
   """
   @spec chat(client(), keyword()) :: response()
@@ -487,6 +586,8 @@ defmodule Anthropix do
     "content_block_stop",
     "message_delta",
     "message_stop",
+    "server_tool_use",
+    "web_search_tool_result"
   ]
 
   # Returns a callback to handle streaming responses
@@ -559,6 +660,31 @@ defmodule Anthropix do
               put_in(block, ["input"], input)
           end
         end)
+      end)
+    end)
+  end
+
+  defp stream_merge(res, %{"type" => "server_tool_use", "id" => id, "name" => name, "input" => input}) do
+    update_in(res.body, fn body ->
+      update_in(body, ["content"], fn content ->
+        content ++ [%{
+          "type" => "server_tool_use",
+          "id" => id,
+          "name" => name,
+          "input" => input
+        }]
+      end)
+    end)
+  end
+
+  defp stream_merge(res, %{"type" => "web_search_tool_result", "tool_use_id" => tool_use_id, "content" => content}) do
+    update_in(res.body, fn body ->
+      update_in(body, ["content"], fn blocks ->
+        blocks ++ [%{
+          "type" => "web_search_tool_result",
+          "tool_use_id" => tool_use_id,
+          "content" => content
+        }]
       end)
     end)
   end

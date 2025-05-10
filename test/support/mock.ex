@@ -19,6 +19,62 @@ defmodule Anthropix.Mock do
       "usage" => %{"input_tokens" => 18, "output_tokens" => 36}
     },
 
+    :messages_web_search => %{
+      "content" => [
+        %{
+          "type" => "text",
+          "text" => "I'll search for information about TypeScript 5.5."
+        },
+        %{
+          "type" => "server_tool_use",
+          "id" => "srvtoolu_01ABC123xyz",
+          "name" => "web_search",
+          "input" => %{
+            "query" => "typescript 5.5 new features"
+          }
+        },
+        %{
+          "type" => "web_search_tool_result",
+          "tool_use_id" => "srvtoolu_01ABC123xyz",
+          "content" => [
+            %{
+              "type" => "web_search_result",
+              "url" => "https://devblogs.microsoft.com/typescript/announcing-typescript-5-5/",
+              "title" => "Announcing TypeScript 5.5",
+              "encrypted_content" => "EqgfCioIARgBIiQ3YTAwMjY1Mi1mZjM5LTQ1NGUtODgxNC1kNjNjNTk1ZWI3Y...",
+              "page_age" => "May 30, 2025"
+            }
+          ]
+        },
+        %{
+          "type" => "text",
+          "text" => "TypeScript 5.5 was released on May 30, 2025 with several new features:",
+          "citations" => [
+            %{
+              "type" => "web_search_result_location",
+              "url" => "https://devblogs.microsoft.com/typescript/announcing-typescript-5-5/",
+              "title" => "Announcing TypeScript 5.5",
+              "encrypted_index" => "Eo8BCioIAhgBIiQyYjQ0OWJmZi1lNm..",
+              "cited_text" => "TypeScript 5.5 is now available! This release brings new type system improvements, decorators enhancements, and tooling features..."
+            }
+          ]
+        }
+      ],
+      "id" => "msg_web_search_test",
+      "model" => "claude-3-7-sonnet-20250219",
+      "role" => "assistant",
+      "stop_reason" => "end_turn",
+      "stop_sequence" => nil,
+      "type" => "message",
+      "usage" => %{
+        "input_tokens" => 24,
+        "output_tokens" => 85,
+        "server_tool_use" => %{
+          "web_search_requests" => 1
+        }
+      }
+    },
+
     :messages_tools => %{
       "content" => [
         %{"text" => "Okay, let me check the weather for London:", "type" => "text"},
@@ -171,6 +227,37 @@ defmodule Anthropix.Mock do
       %{"type" => "content_block_delta", "index" => 0, "delta" => %{"text" => " beauty", "type" => "text_delta"}},
       %{"type" => "content_block_stop", "index" => 0},
       %{"type" => "message_delta", "delta" => %{"stop_reason" => "end_turn", "stop_sequence" => nil}, "usage" => %{"output_tokens" => 34}},
+      %{"type" => "message_stop"}
+    ],
+
+    messages_web_search: [
+      %{"type" => "message_start", "message" => %{
+        "content" => [],
+        "id" => "msg_01WebSearch8riFWbgj1ZoSgD1b",
+        "model" => "claude-3-7-sonnet-20250219",
+        "role" => "assistant",
+        "stop_reason" => nil,
+        "stop_sequence" => nil,
+        "type" => "message",
+        "usage" => %{"input_tokens" => 24, "output_tokens" => 1}
+      }},
+      %{"type" => "content_block_start", "index" => 0, "content_block" => %{"text" => "", "type" => "text"}},
+      %{"type" => "content_block_delta", "index" => 0, "delta" => %{"text" => "I'll search for information about TypeScript 5.5.", "type" => "text_delta"}},
+      %{"type" => "content_block_stop", "index" => 0},
+      %{"type" => "server_tool_use", "id" => "srvtoolu_01ABC123xyz", "name" => "web_search", "input" => %{"query" => "typescript 5.5 new features"}},
+      %{"type" => "web_search_tool_result", "tool_use_id" => "srvtoolu_01ABC123xyz", "content" => [
+        %{
+          "type" => "web_search_result",
+          "url" => "https://devblogs.microsoft.com/typescript/announcing-typescript-5-5/",
+          "title" => "Announcing TypeScript 5.5",
+          "encrypted_content" => "EqgfCioIARgBIiQ3YTAwMjY1Mi1mZjM5LTQ1NGUtODgxNC1kNjNjNTk1ZWI3Y...",
+          "page_age" => "May 30, 2025"
+        }
+      ]},
+      %{"type" => "content_block_start", "index" => 1, "content_block" => %{"text" => "", "type" => "text"}},
+      %{"type" => "content_block_delta", "index" => 1, "delta" => %{"text" => "TypeScript 5.5 was released on May 30, 2025 with several new features:", "type" => "text_delta"}},
+      %{"type" => "content_block_stop", "index" => 1},
+      %{"type" => "message_delta", "delta" => %{"stop_reason" => "end_turn", "stop_sequence" => nil}, "usage" => %{"output_tokens" => 85, "server_tool_use" => %{"web_search_requests" => 1}}},
       %{"type" => "message_stop"}
     ],
 

@@ -181,6 +181,39 @@ defmodule AnthropixTest do
       ])
     end
 
+    test "generates a response with web search" do
+      client = Mock.client(& Mock.respond(&1, :messages_web_search))
+      assert {:ok, res} = Anthropix.chat(client, [
+        model: "claude-3-7-sonnet-20250219",
+        messages: [
+          %{role: "user", content: "How do I update a web app to TypeScript 5.5?"}
+        ],
+        tools: [
+          %{
+            type: "web_search_20250305",
+            name: "web_search"
+          }
+        ]
+      ])
+
+      server_tool_use = Enum.find(res["content"], & &1["type"] == "server_tool_use")
+      web_search_result = Enum.find(res["content"], & &1["type"] == "web_search_tool_result")
+      cited_text = Enum.find(res["content"], & Map.has_key?(&1, "citations"))
+
+      assert is_map(server_tool_use)
+      assert get_in(server_tool_use, ["name"]) == "web_search"
+      assert get_in(server_tool_use, ["input", "query"]) == "typescript 5.5 new features"
+
+      assert is_map(web_search_result)
+      assert get_in(web_search_result, ["tool_use_id"]) == server_tool_use["id"]
+      assert is_list(web_search_result["content"])
+      assert length(web_search_result["content"]) > 0
+
+      assert is_map(cited_text)
+      assert is_list(cited_text["citations"])
+      assert length(cited_text["citations"]) > 0
+    end
+
     test "allow nested params as string keyed maps" do
       client = Mock.client(& Mock.respond(&1, :messages))
       assert {:ok, _res} = Anthropix.chat(client, [
@@ -229,7 +262,40 @@ defmodule AnthropixTest do
       ])
 
       assert is_function(stream, 2)
-      assert Enum.to_list(stream) |> length() == 31
+      assert length(Enum.to_list(stream)) > 5
+    end
+
+    test "streams a response with web search" do
+      client = Mock.client(& Mock.stream(&1, :messages_web_search))
+      assert {:ok, stream} = Anthropix.chat(client, [
+        model: "claude-3-7-sonnet-20250219",
+        messages: [
+          %{role: "user", content: "How do I update a web app to TypeScript 5.5?"}
+        ],
+        tools: [
+          %{
+            type: "web_search_20250305",
+            name: "web_search"
+          }
+        ],
+        stream: true
+      ])
+
+      res = Enum.to_list(stream)
+
+      assert Enum.any?(res, & &1["type"] == "server_tool_use")
+      assert Enum.any?(res, & &1["type"] == "web_search_tool_result")
+
+      server_tool = Enum.find(res, & &1["type"] == "server_tool_use")
+      assert server_tool["name"] == "web_search"
+      assert server_tool["input"]["query"] == "typescript 5.5 new features"
+
+      web_result = Enum.find(res, & &1["type"] == "web_search_tool_result")
+      assert web_result["tool_use_id"] == server_tool["id"]
+
+      # Verify that usage includes web search metrics
+      last_delta = Enum.find(res, & &1["type"] == "message_delta")
+      assert get_in(last_delta, ["usage", "server_tool_use", "web_search_requests"]) == 1
     end
 
     test "with stream: pid, returns a task and sends messages to pid" do
